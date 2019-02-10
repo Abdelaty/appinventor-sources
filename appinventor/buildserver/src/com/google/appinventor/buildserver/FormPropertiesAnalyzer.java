@@ -29,6 +29,8 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Methods for analyzing the contents of a Young Android Form file.
@@ -37,7 +39,7 @@ import java.util.logging.Logger;
  */
 public class FormPropertiesAnalyzer {
 
-  private static final String FORM_PROPERTIES_PREFIX = "#|\n";
+  private static final Pattern FORM_PROPERTIES_PREFIX = Pattern.compile("#\\|\\r?\\n\\$JSON\\r?\\n");
   private static final String FORM_PROPERTIES_SUFFIX = "\n|#";
   
   // Logging support
@@ -56,20 +58,21 @@ public class FormPropertiesAnalyzer {
     // First, locate the beginning of the $JSON section.
     // Older files have a $Properties before the $JSON section and we need to make sure we skip
     // that.
-    String jsonSectionPrefix = FORM_PROPERTIES_PREFIX + "$JSON\n";
-    int beginningOfJsonSection = source.lastIndexOf(jsonSectionPrefix);
+    Matcher m = FORM_PROPERTIES_PREFIX.matcher(source);
+    int beginningOfJsonSection = m.find() ? m.end() : -1;
     if (beginningOfJsonSection == -1) {
       throw new IllegalArgumentException(
           "Unable to parse file - cannot locate beginning of $JSON section");
     }
-    beginningOfJsonSection += jsonSectionPrefix.length();
 
-    // Then, locate the end of the $JSON section;
-    String jsonSectionSuffix = FORM_PROPERTIES_SUFFIX;
-    int endOfJsonSection = source.lastIndexOf(jsonSectionSuffix);
+    // Then, locate the end of the $JSON section
+    int endOfJsonSection = source.lastIndexOf(FORM_PROPERTIES_SUFFIX);
     if (endOfJsonSection == -1) {
       throw new IllegalArgumentException(
           "Unable to parse file - cannot locate end of $JSON section");
+    }
+    if (source.charAt(endOfJsonSection - 1) == '\r') {
+      endOfJsonSection--;
     }
 
     String jsonPropertiesString = source.substring(beginningOfJsonSection,
